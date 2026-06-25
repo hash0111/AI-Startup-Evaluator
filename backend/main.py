@@ -9,6 +9,20 @@ from models.schemas import (
     InterviewQuestion,
     FounderAnswers,
     EvaluationReport,
+    MarketResearch,
+    CompetitorAnalysis,
+    RiskAnalysis,
+    ContrarianReport,
+    ImprovementSuggestions,
+    MVPRecommendation,
+    MVPBuildFirst,
+    MVPBuildLater,
+    MVPDoNotBuild,
+    EvaluationScore,
+    ClassifyIdeaRequest,
+    IdeaClassification,
+    InterviewStepRequest,
+    InterviewStepResponse,
 )
 from agents.founder_interview import generate_questions
 from agents.research_agent import conduct_research
@@ -18,6 +32,9 @@ from agents.contrarian_agent import generate_contrarian_report
 from agents.improvement_agent import suggest_improvements
 from agents.mvp_agent import recommend_mvp
 from agents.evaluation_agent import evaluate
+from agents.blueprint_generator import generate_blueprint
+from agents.classifier_agent import classify_idea
+from agents.interview_agent import generate_next_question
 
 
 @asynccontextmanager
@@ -41,6 +58,23 @@ async def health():
     return {"status": "ok"}
 
 
+@app.post("/api/classify-idea", response_model=IdeaClassification)
+async def classify_startup_idea(req: ClassifyIdeaRequest):
+    result = await classify_idea(req.idea)
+    return IdeaClassification(**result)
+
+
+@app.post("/api/interview/step", response_model=InterviewStepResponse)
+async def interview_step(req: InterviewStepRequest):
+    result = await generate_next_question(
+        idea=req.idea,
+        startup_type=req.startup_type,
+        industry=req.industry,
+        history=req.history,
+    )
+    return InterviewStepResponse(**result)
+
+
 @app.post("/api/interview/questions", response_model=FounderInterviewResponse)
 async def interview_questions(req: FounderInterviewRequest):
     questions = await generate_questions(req.idea)
@@ -58,22 +92,68 @@ async def evaluate_startup(req: FounderAnswers):
         [f"Q{i+1}: {a}" for i, a in enumerate(req.answers)]
     )
     full_context = f"Startup Idea: {idea}\n\nFounder Responses:\n{answers_context}"
+    if len(full_context) > 3000:
+        full_context = full_context[:3000] + "\n...[truncated]"
 
-    market = await conduct_research(idea, req.answers)
-    await asyncio.sleep(2.5)
-    competitors = await discover_competitors(idea, full_context)
-    await asyncio.sleep(2.5)
-    risks = await analyze_risks(idea, full_context)
-    await asyncio.sleep(2.5)
-    contrarian = await generate_contrarian_report(idea, full_context)
-    await asyncio.sleep(2.5)
-    improvements = await suggest_improvements(idea, full_context)
-    await asyncio.sleep(2.5)
-    mvp = await recommend_mvp(idea, full_context)
-    await asyncio.sleep(2.5)
-    evaluation_score = await evaluate(
-        idea, market, competitors, risks, contrarian, improvements, mvp
-    )
+    try:
+        market = await conduct_research(idea, req.answers)
+    except Exception as e:
+        print(f"  Market research failed: {e}")
+        market = MarketResearch(market=idea, market_growth="Unknown", opportunities=[], threats=[], sources=[])
+    await asyncio.sleep(6)
+    try:
+        competitors = await discover_competitors(idea, full_context)
+    except Exception as e:
+        print(f"  Competitor discovery failed: {e}")
+        competitors = CompetitorAnalysis(competitors=[])
+    await asyncio.sleep(6)
+    try:
+        risks = await analyze_risks(idea, full_context)
+    except Exception as e:
+        print(f"  Risk analysis failed: {e}")
+        risks = RiskAnalysis(market_risk="Unknown", technical_risk="Unknown", distribution_risk="Unknown", monetization_risk="Unknown")
+    await asyncio.sleep(6)
+    try:
+        contrarian = await generate_contrarian_report(idea, full_context)
+    except Exception as e:
+        print(f"  Contrarian analysis failed: {e}")
+        contrarian = ContrarianReport(weaknesses=[])
+    await asyncio.sleep(6)
+    try:
+        improvements = await suggest_improvements(idea, full_context)
+    except Exception as e:
+        print(f"  Improvement suggestions failed: {e}")
+        improvements = ImprovementSuggestions(suggestions=[])
+    await asyncio.sleep(6)
+    try:
+        mvp = await recommend_mvp(idea, full_context)
+    except Exception as e:
+        print(f"  MVP recommendation failed: {e}")
+        mvp = MVPRecommendation(
+            build_first=MVPBuildFirst(features=["Core feature set"]),
+            build_later=MVPBuildLater(features=["Advanced features"]),
+            do_not_build=MVPDoNotBuild(features=["Non-essential features"]),
+        )
+    await asyncio.sleep(6)
+    try:
+        evaluation_score = await evaluate(
+            idea, market, competitors, risks, contrarian, improvements, mvp
+        )
+    except Exception as e:
+        print(f"  Evaluation failed: {e}")
+        evaluation_score = EvaluationScore(
+            market_opportunity=5, competition=5, technical_feasibility=5,
+            monetization=5, distribution=5, overall_verdict="Unable to Evaluate",
+            confidence_score=50,
+        )
+    await asyncio.sleep(6)
+    try:
+        blueprint = await generate_blueprint(
+            idea, req.answers, market, competitors, risks, contrarian, improvements, mvp, evaluation_score
+        )
+    except Exception as e:
+        print(f"  Blueprint generation failed: {e}")
+        blueprint = None
 
     return EvaluationReport(
         idea=idea,
@@ -84,4 +164,5 @@ async def evaluate_startup(req: FounderAnswers):
         improvement_suggestions=improvements,
         mvp_recommendation=mvp,
         evaluation=evaluation_score,
+        founder_blueprint=blueprint,
     )
