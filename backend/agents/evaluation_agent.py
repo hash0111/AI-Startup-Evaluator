@@ -29,13 +29,20 @@ async def evaluate(
     improvements: ImprovementSuggestions,
     mvp: MVPRecommendation,
 ) -> EvaluationScore:
+    market_summary = f"Market: {market.market} | Growth: {market.market_growth} | Opps: {'; '.join(market.opportunities)} | Threats: {'; '.join(market.threats)}"
+    comp_summary = "Competitors: " + "; ".join([f"{c.name}({c.type})" for c in competitors.competitors])
+    risk_summary = f"Risks: Market={risks.market_risk} | Technical={risks.technical_risk} | Distribution={risks.distribution_risk} | Monetization={risks.monetization_risk}"
+    contrarian_summary = "Contrarian: " + "; ".join(contrarian.weaknesses)
+    improv_summary = "Improvements: " + "; ".join([f"{s.current} -> {s.improved}" for s in improvements.suggestions])
+    mvp_summary = f"MVP: Build first=[{'|'.join(mvp.build_first.features)}] | Later=[{'|'.join(mvp.build_later.features)}] | Avoid=[{'|'.join(mvp.do_not_build.features)}]"
+
     context = f"""
-Market: {market.model_dump_json(indent=2)}
-Competitors: {competitors.model_dump_json(indent=2)}
-Risks: {risks.model_dump_json(indent=2)}
-Contrarian: {contrarian.model_dump_json(indent=2)}
-Improvements: {improvements.model_dump_json(indent=2)}
-MVP: {mvp.model_dump_json(indent=2)}
+{market_summary}
+{comp_summary}
+{risk_summary}
+{contrarian_summary}
+{improv_summary}
+{mvp_summary}
 """
     result = await groq_chat_json(
         QWEN_MODEL,
