@@ -3,46 +3,139 @@
 @tailwind utilities;
 
 :root {
-  --color-bg: #fafafa;
-  --color-surface: #ffffff;
-  --color-border: #e5e7eb;
-  --color-muted: #6b7280;
-  --color-accent: #2563eb;
-  --color-accent-hover: #1d4ed8;
-  --color-success: #16a34a;
-  --color-warning: #d97706;
-  --color-danger: #dc2626;
+  --bg: #0A0B0F;
+  --surface: #111318;
+  --surface-secondary: #171A21;
+  --border: rgba(255, 255, 255, 0.06);
+  --text-primary: #F8FAFC;
+  --text-secondary: #A1A1AA;
+  --text-muted: #71717A;
 }
 
 body {
-  background: var(--color-bg);
-  color: #111827;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: #0A0B0F;
+  color: #F8FAFC;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgba(96, 165, 250, 0.2);
+  color: #F8FAFC;
 }
 
 @layer components {
   .card {
-    @apply rounded-xl border border-gray-200 bg-white;
+    @apply rounded-xl border;
+    border-color: var(--border);
+    background: var(--surface);
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition-all duration-200;
+  }
+  .btn-primary:hover {
+    background: #2563eb;
+    box-shadow: 0 0 20px rgba(37, 99, 235, 0.15);
+  }
+  .btn-primary:disabled {
+    @apply opacity-50 cursor-not-allowed;
+    box-shadow: none;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors;
+    @apply inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium transition-all duration-200;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-primary);
+  }
+  .btn-secondary:hover {
+    background: var(--surface-secondary);
+    border-color: rgba(255, 255, 255, 0.1);
   }
 
   .badge-green {
-    @apply inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700;
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+    background: rgba(52, 211, 153, 0.1);
+    color: #34D399;
+    border: 1px solid rgba(52, 211, 153, 0.2);
   }
 
   .badge-yellow {
-    @apply inline-flex items-center rounded-full bg-yellow-50 px-2.5 py-0.5 text-xs font-medium text-yellow-700;
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+    background: rgba(251, 191, 36, 0.1);
+    color: #FBBF24;
+    border: 1px solid rgba(251, 191, 36, 0.2);
   }
 
   .badge-red {
-    @apply inline-flex items-center rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700;
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+    background: rgba(248, 113, 113, 0.1);
+    color: #F87171;
+    border: 1px solid rgba(248, 113, 113, 0.2);
   }
+
+  .nav-blur {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, #F8FAFC 0%, #A1A1AA 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hover-card {
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  }
+  .hover-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes countUp {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.anim-section {
+  opacity: 0;
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.anim-section:nth-child(1) { animation-delay: 0.05s; }
+.anim-section:nth-child(2) { animation-delay: 0.1s; }
+.anim-section:nth-child(3) { animation-delay: 0.15s; }
+.anim-section:nth-child(4) { animation-delay: 0.2s; }
+.anim-section:nth-child(5) { animation-delay: 0.25s; }
+.anim-section:nth-child(6) { animation-delay: 0.3s; }
+.anim-section:nth-child(7) { animation-delay: 0.35s; }
+.anim-section:nth-child(8) { animation-delay: 0.4s; }
+.anim-section:nth-child(9) { animation-delay: 0.45s; }
+.anim-section:nth-child(10) { animation-delay: 0.5s; }
+.anim-section:nth-child(11) { animation-delay: 0.55s; }
+.anim-section:nth-child(12) { animation-delay: 0.6s; }
+.anim-section:nth-child(13) { animation-delay: 0.65s; }
+
+.card-hover {
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.1);
 }
