@@ -10,10 +10,16 @@ from models.schemas import (
     FounderAnswers,
     EvaluationReport,
     MarketResearch,
+    DemandDriver,
+    MarketKeyRisk,
     CompetitorAnalysis,
+    CompetitorInsight,
     RiskAnalysis,
-    ContrarianReport,
+    RiskItem,
+    StrategicChallenges,
+    StrategicChallenge,
     ImprovementSuggestions,
+    ImprovementAction,
     MVPRecommendation,
     MVPBuildFirst,
     MVPBuildLater,
@@ -99,7 +105,10 @@ async def evaluate_startup(req: FounderAnswers):
         market = await conduct_research(idea, req.answers)
     except Exception as e:
         print(f"  Market research failed: {e}")
-        market = MarketResearch(market=idea, market_growth="Unknown", opportunities=[], threats=[], sources=[])
+        market = MarketResearch(
+            industry=idea, growth_direction="Growing", market_maturity="Growing",
+            demand_drivers=[], key_risks=[], confidence=50, sources=[]
+        )
     await asyncio.sleep(6)
     try:
         competitors = await discover_competitors(idea, full_context)
@@ -111,13 +120,13 @@ async def evaluate_startup(req: FounderAnswers):
         risks = await analyze_risks(idea, full_context)
     except Exception as e:
         print(f"  Risk analysis failed: {e}")
-        risks = RiskAnalysis(market_risk="Unknown", technical_risk="Unknown", distribution_risk="Unknown", monetization_risk="Unknown")
+        risks = RiskAnalysis(risks=[])
     await asyncio.sleep(6)
     try:
         contrarian = await generate_contrarian_report(idea, full_context)
     except Exception as e:
-        print(f"  Contrarian analysis failed: {e}")
-        contrarian = ContrarianReport(weaknesses=[])
+        print(f"  Strategic challenges failed: {e}")
+        contrarian = StrategicChallenges(challenges=[])
     await asyncio.sleep(6)
     try:
         improvements = await suggest_improvements(idea, full_context)
@@ -160,7 +169,7 @@ async def evaluate_startup(req: FounderAnswers):
         market_research=market,
         competitor_analysis=competitors,
         risk_analysis=risks,
-        contrarian_report=contrarian,
+        strategic_challenges=contrarian,
         improvement_suggestions=improvements,
         mvp_recommendation=mvp,
         evaluation=evaluation_score,

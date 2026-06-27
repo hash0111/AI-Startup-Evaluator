@@ -1,17 +1,29 @@
 from services.groq_client import groq_chat_json
 from config import QWEN_MODEL
-from models.schemas import ImprovementSuggestions, Improvement
+from models.schemas import ImprovementSuggestions, ImprovementAction
 
-SYSTEM_PROMPT = """You are a startup strategy consultant.
-Suggest improvements for a startup idea.
-For each suggestion provide:
-- current: the current aspect
-- improved: the improved version
-- reason: why this improves the idea
+SYSTEM_PROMPT = """You are a startup strategy consultant writing an improvement roadmap.
 
-Focus on: pivots, niche positioning, differentiation, alternative customer segments.
+For each improvement, provide a complete action plan. Return JSON with this structure:
+{
+  "suggestions": [
+    {
+      "current_situation": "What the startup currently does or assumes",
+      "problem": "Why this is a problem",
+      "recommendation": "What to do instead",
+      "expected_impact": "What improvement to expect",
+      "estimated_difficulty": "Easy / Medium / Hard",
+      "priority": "High / Medium / Low",
+      "timeline": "e.g., 2 weeks, 30 days, 60 days"
+    }
+  ]
+}
 
-Return JSON: {"suggestions": [{"current": "", "improved": "", "reason": ""}]}
+Rules:
+- Generate 3-5 improvements.
+- Focus on: pivots, niche positioning, differentiation, alternative customer segments, pricing.
+- Every recommendation must be specific and actionable.
+- expected_impact should be measurable.
 """
 
 
@@ -21,4 +33,5 @@ async def suggest_improvements(idea: str, context: str) -> ImprovementSuggestion
         SYSTEM_PROMPT,
         f"Idea: {idea}\n\nContext:\n{context}",
     )
-    return ImprovementSuggestions(**result)
+    suggestions = [ImprovementAction(**s) for s in result.get("suggestions", [])]
+    return ImprovementSuggestions(suggestions=suggestions)
