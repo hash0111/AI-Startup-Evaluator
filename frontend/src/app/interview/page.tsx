@@ -186,6 +186,7 @@ export default function InterviewPage() {
     try {
       const report = await evaluateStartup(idea, reviewAnswers);
       sessionStorage.setItem("evaluationReport", JSON.stringify(report));
+      sessionStorage.setItem("deepDiveContext", JSON.stringify({ idea, answers: reviewAnswers }));
       router.push("/evaluation");
     } catch {
       setPhase("review");

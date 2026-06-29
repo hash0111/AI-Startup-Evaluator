@@ -6,7 +6,11 @@ export async function evaluateStartup(idea: string, answers: string[]) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ idea, answers }),
   });
-  if (!res.ok) throw new Error("Evaluation failed");
+  if (!res.ok) {
+    let detail = "Evaluation failed";
+    try { const body = await res.json(); detail = body.detail || detail; } catch {}
+    throw new Error(detail);
+  }
   return res.json();
 }
 
@@ -64,4 +68,50 @@ export async function interviewStep(
   } finally {
     clearTimeout(timer);
   }
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export async function chatWithReport(
+  report: unknown,
+  messages: ChatMessage[],
+  systemPrompt?: string,
+  signal?: AbortSignal
+): Promise<Response> {
+  const res = await fetch(`${BASE_URL}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      report,
+      messages,
+      system_prompt: systemPrompt,
+    }),
+    signal,
+  });
+  if (!res.ok) throw new Error("Chat request failed");
+  return res;
+}
+
+export async function generateDeepDive(
+  idea: string,
+  answers: string[],
+  report: unknown,
+  section: string,
+  signal?: AbortSignal
+) {
+  const res = await fetch(`${BASE_URL}/api/deep-dive`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idea, answers, report, section }),
+    signal,
+  });
+  if (!res.ok) {
+    let detail = "Deep dive generation failed";
+    try { const body = await res.json(); detail = body.detail || detail; } catch {}
+    throw new Error(detail);
+  }
+  return res.json();
 }

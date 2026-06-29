@@ -9,6 +9,11 @@ import {
   CartesianGrid, Legend,
 } from "recharts";
 import { exportPDF, exportCSV } from "@/lib/export";
+import AICopilot from "@/components/evaluation/AICopilot";
+import SidebarHeader from "@/components/evaluation/sidebar/SidebarHeader";
+import SidebarNavigation from "@/components/evaluation/sidebar/SidebarNavigation";
+import SidebarUtilities from "@/components/evaluation/sidebar/SidebarUtilities";
+import { deepDiveManager } from "@/lib/deep-dive-manager";
 
 // ── Types ──
 
@@ -141,8 +146,8 @@ export default function EvaluationPage() {
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
   const [expandedRisk, setExpandedRisk] = useState<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const containerRef = useRef<HTMLDivElement>(null);
   const [activeSection, setActiveSection] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null!);
 
   const SIDEBAR_SECTIONS = [
     { label: "Executive Overview", id: "executive-overview" },
@@ -167,6 +172,14 @@ export default function EvaluationPage() {
     setActiveSection(id);
   }, []);
 
+  const navigateToDeepDive = useCallback((section: string) => {
+    const stored = sessionStorage.getItem("deepDiveContext") || "{}";
+    const ctx = JSON.parse(stored);
+    ctx.report = report;
+    sessionStorage.setItem("deepDiveContext", JSON.stringify(ctx));
+    router.push(`/evaluation/deep-dive/${section}`);
+  }, [report, router]);
+
   const progressLabels = ["Founder Interview", "Market Research", "Competitor Discovery", "Risk Analysis", "Generating Final Verdict"];
 
   useEffect(() => {
@@ -175,6 +188,20 @@ export default function EvaluationPage() {
     try {
       const parsed = JSON.parse(stored) as EvaluationReport;
       setReport(parsed);
+      // Initialize background deep dive generation
+      const ctx = sessionStorage.getItem("deepDiveContext");
+      if (ctx) {
+        try {
+          const { idea, answers } = JSON.parse(ctx);
+          if (idea && answers) {
+            deepDiveManager.setContext(idea, answers, parsed);
+            // Start background prefetching for likely sections
+            if (idea && answers) {
+              setTimeout(() => deepDiveManager.startPrefetching(), 100);
+            }
+          }
+        } catch {}
+      }
       const interval = setInterval(() => {
         setProgressIdx((i) => {
           if (i >= progressLabels.length - 1) { clearInterval(interval); setLoading(false); setTimeout(() => setShowReport(true), 100); return i; }
@@ -265,7 +292,7 @@ export default function EvaluationPage() {
   // ── Render ──
 
   return (
-    <div className="min-h-screen bg-[#09090B] flex">
+    <div className="h-screen bg-[#09090B] flex overflow-hidden">
       <style>{ANIM_STYLES}</style>
 
       {toast && (
@@ -278,32 +305,33 @@ export default function EvaluationPage() {
         </div>
       )}
 
-      {/* ─── Sidebar ─── */}
-      <aside className={`${sidebarOpen ? "w-56" : "w-0"} overflow-hidden transition-all duration-300 border-r border-white/[0.06] bg-[#0B0D12] flex-shrink-0 sticky top-0 h-screen`}>
-        <div className="w-56 p-4 h-full flex flex-col">
-          <div className="flex items-center justify-between mb-6 px-2">
-            <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-[0.15em]">Sections</span>
-            <button onClick={() => setSidebarOpen(false)} className="text-zinc-600 hover:text-zinc-400 transition-colors">
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" /></svg>
-            </button>
-          </div>
-          <nav className="flex-1 space-y-0.5 overflow-y-auto">
-            {SIDEBAR_SECTIONS.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => scrollTo(s.id)}
-                className={`w-full text-left px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  activeSection === s.id ? "bg-white/10 text-white" : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]"
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </nav>
-        </div>
+      {/* ─── Sidebar — 15% ─── */}
+      <aside className={`${sidebarOpen ? "flex-[0_0_15%]" : "flex-[0_0_0%]"} overflow-hidden transition-all duration-300 border-r border-white/[0.06] bg-[#0B0D12] hidden lg:flex flex-col h-screen`}>
+        <SidebarHeader onToggle={() => setSidebarOpen(false)} />
+        <SidebarNavigation
+          sections={SIDEBAR_SECTIONS}
+          activeSection={activeSection}
+          onScrollTo={scrollTo}
+          onDeepDive={(section) => {
+            const stored = sessionStorage.getItem("deepDiveContext") || "{}";
+            const ctx = JSON.parse(stored);
+            ctx.report = report;
+            sessionStorage.setItem("deepDiveContext", JSON.stringify(ctx));
+            router.push(`/evaluation/deep-dive/${section}`);
+          }}
+        />
+        <SidebarUtilities
+          onDeepDiveNavigate={(section) => {
+            const stored = sessionStorage.getItem("deepDiveContext") || "{}";
+            const ctx = JSON.parse(stored);
+            ctx.report = report;
+            sessionStorage.setItem("deepDiveContext", JSON.stringify(ctx));
+            router.push(`/evaluation/deep-dive/${section}`);
+          }}
+        />
       </aside>
 
-      {/* ─── Main Content ─── */}
+      {/* ─── Report Content — fills remaining width ─── */}
       <div ref={containerRef} className="flex-1 min-w-0 overflow-y-auto relative">
         {!sidebarOpen && (
           <button onClick={() => setSidebarOpen(true)} className="absolute left-0 top-0 z-10 text-zinc-500 hover:text-zinc-300 transition-colors p-3">
@@ -440,7 +468,12 @@ export default function EvaluationPage() {
            MARKET INTELLIGENCE (insight list, no cards)
            ══════════════════════════════════════════════ */}
         <section className="anim-section mb-32" data-section="market-intelligence" id="market-intelligence">
-          <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mb-10">Market Intelligence</h2>
+          <div className="flex items-center justify-between mb-10">
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Market Intelligence</h2>
+            <button onClick={() => navigateToDeepDive("market-intelligence")} className="text-xs text-blue-400 hover:text-blue-300 transition-colors whitespace-nowrap shrink-0 ml-4 font-medium">
+              Deep Dive →
+            </button>
+          </div>
 
           <div className="grid lg:grid-cols-3 gap-8 mb-12">
             <div>
@@ -513,7 +546,12 @@ export default function EvaluationPage() {
            ══════════════════════════════════════════════ */}
         {bp && (
           <section className="anim-section mb-32" data-section="target-audience" id="target-audience">
-            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mb-10">Target Audience</h2>
+            <div className="flex items-center justify-between mb-10">
+              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Target Audience</h2>
+              <button onClick={() => navigateToDeepDive("target-audience")} className="text-xs text-blue-400 hover:text-blue-300 transition-colors whitespace-nowrap shrink-0 ml-4 font-medium">
+                Deep Dive →
+              </button>
+            </div>
 
             <div className="grid lg:grid-cols-3 gap-8">
               {bp.target_audience.map((p, i) => (
@@ -582,7 +620,12 @@ export default function EvaluationPage() {
            ══════════════════════════════════════════════ */}
         {bp && (
           <section className="anim-section mb-32" data-section="monetization-strategy" id="monetization-strategy">
-            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mb-10">Monetization Strategy</h2>
+            <div className="flex items-center justify-between mb-10">
+              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Monetization Strategy</h2>
+              <button onClick={() => navigateToDeepDive("monetization-strategy")} className="text-xs text-blue-400 hover:text-blue-300 transition-colors whitespace-nowrap shrink-0 ml-4 font-medium">
+                Deep Dive →
+              </button>
+            </div>
             <div className="border border-white/[0.08] rounded-2xl overflow-hidden bg-[#0E1015]">
               <table className="w-full text-sm">
                 <thead>
@@ -643,7 +686,12 @@ export default function EvaluationPage() {
            ══════════════════════════════════════════════ */}
         {bp && (
           <section className="anim-section mb-32" data-section="go-to-market-plan" id="go-to-market-plan">
-            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mb-10">Go-To-Market Plan</h2>
+            <div className="flex items-center justify-between mb-10">
+              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Go-To-Market Plan</h2>
+              <button onClick={() => navigateToDeepDive("go-to-market-plan")} className="text-xs text-blue-400 hover:text-blue-300 transition-colors whitespace-nowrap shrink-0 ml-4 font-medium">
+                Deep Dive →
+              </button>
+            </div>
             <div className="grid lg:grid-cols-3 gap-6">
               {bp.launch_plan_90_days.map((m, i) => {
                 const colors = ["border-l-blue-500", "border-l-amber-500", "border-l-green-500"];
@@ -721,7 +769,12 @@ export default function EvaluationPage() {
            ══════════════════════════════════════════════ */}
         {report.risk_analysis.risks.length > 0 && (
           <section className="anim-section mb-32" data-section="risk-register" id="risk-register">
-            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mb-10">Risk Register</h2>
+            <div className="flex items-center justify-between mb-10">
+              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Risk Register</h2>
+              <button onClick={() => navigateToDeepDive("risk-register")} className="text-xs text-blue-400 hover:text-blue-300 transition-colors whitespace-nowrap shrink-0 ml-4 font-medium">
+                Deep Dive →
+              </button>
+            </div>
             <div className="border border-white/[0.08] rounded-2xl overflow-hidden bg-[#0E1015]">
               <table className="w-full text-sm">
                 <thead>
@@ -785,7 +838,12 @@ export default function EvaluationPage() {
            ══════════════════════════════════════════════ */}
         {report.competitor_analysis.competitors.length > 0 && (
           <section className="anim-section mb-32" data-section="competitor-intelligence" id="competitor-intelligence">
-            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mb-10">Competitor Intelligence</h2>
+            <div className="flex items-center justify-between mb-10">
+              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Competitor Intelligence</h2>
+              <button onClick={() => navigateToDeepDive("competitor-intelligence")} className="text-xs text-blue-400 hover:text-blue-300 transition-colors whitespace-nowrap shrink-0 ml-4 font-medium">
+                Deep Dive →
+              </button>
+            </div>
             <div className="border border-white/[0.08] rounded-2xl overflow-hidden bg-[#0E1015]">
               <table className="w-full text-sm">
                 <thead>
@@ -938,6 +996,9 @@ export default function EvaluationPage() {
         <div className="h-16" />
       </div>
       </div>
+
+      {/* ─── Floating AI Copilot ─── */}
+      <AICopilot report={report} activeSection={activeSection} />
     </div>
   );
 }
