@@ -44,7 +44,6 @@ export async function indexedDBSet<T>(key: string, data: T): Promise<void> {
       tx.onerror = () => reject(tx.error);
     });
   } catch {
-    // silently fail — cache miss is handled gracefully
   }
 }
 
@@ -59,7 +58,6 @@ export async function indexedDBDelete(key: string): Promise<void> {
       tx.onerror = () => reject(tx.error);
     });
   } catch {
-    // silently fail
   }
 }
 
@@ -74,6 +72,5 @@ export async function indexedDBClear(): Promise<void> {
       tx.onerror = () => reject(tx.error);
     });
   } catch {
-    // silently fail
   }
 }
