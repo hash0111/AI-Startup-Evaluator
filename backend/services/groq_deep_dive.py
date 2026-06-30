@@ -11,7 +11,8 @@ HEADERS = {
 
 _last_request_time = 0
 _request_lock = asyncio.Lock()
-MIN_INTERVAL = 10.0
+MIN_INTERVAL = 5.0
+MAX_RETRY_AFTER = 20
 
 async def _throttle():
     global _last_request_time
@@ -24,17 +25,17 @@ async def _throttle():
         _last_request_time = asyncio.get_event_loop().time()
 
 SECTION_REQUIRED_FIELDS: dict[str, str] = {
-    "market-intelligence": """Required JSON fields: executive_summary, key_findings (8-12), detailed_analysis (array of {heading, content, evidence[]}), market_data {tam, sam, som, growth_rate, market_maturity}, competitive_landscape, opportunities[] (with impact, timeframe), risks[] (with severity, mitigation), strategic_implications[], recommendations[] (with rationale, priority), analyst_notes, sources[]""",
+    "market-intelligence": "executive_summary, key_findings[8-12], detailed_analysis[{heading, content, evidence[]}], market_data{tam,sam,som,growth_rate,market_maturity}, competitive_landscape, opportunities[{impact,timetable}], risks[{severity,mitigation}], strategic_implications[], recommendations[{rationale,priority}], analyst_notes, sources[]",
 
-    "competitor-intelligence": """Required JSON fields: executive_summary, key_findings (8-12), detailed_analysis[] (heading, content, evidence[]), competitor_table[] (name, strength, weakness, pricing, market_share, threat_level, differentiator), competitive_advantages[], competitive_threats[] (severity, timeframe), positioning_recommendations[] (strategy, rationale, expected_outcome), strategic_implications[], recommendations[] (rationale, priority), analyst_notes, sources[]""",
+    "competitor-intelligence": "executive_summary, key_findings[8-12], detailed_analysis[{heading,content,evidence[]}], competitor_table[{name,strength,weakness,pricing,market_share,threat_level,differentiator}], competitive_advantages[], competitive_threats[{severity,timetable}], positioning_recommendations[{strategy,rationale,expected_outcome}], strategic_implications[], recommendations[{rationale,priority}], analyst_notes, sources[]",
 
-    "target-audience": """Required JSON fields: executive_summary, key_findings (8-12), detailed_analysis[] (heading, content, evidence[]), persona_table[] (name, demographics, pain_points[], budget, buying_triggers[], objections[], channel_preference, ltv_estimate), market_segmentation, opportunities[] (impact, effort), risks[] (severity, mitigation), strategic_implications[], recommendations[] (rationale, priority), analyst_notes, sources[]""",
+    "target-audience": "executive_summary, key_findings[8-12], detailed_analysis[{heading,content,evidence[]}], persona_table[{name,demographics,pain_points[],budget,buying_triggers[],objections[],channel_preference,ltv_estimate}], market_segmentation, opportunities[{impact,effort}], risks[{severity,mitigation}], strategic_implications[], recommendations[{rationale,priority}], analyst_notes, sources[]",
 
-    "monetization-strategy": """Required JSON fields: executive_summary, key_findings (8-12), detailed_analysis[] (heading, content, evidence[]), revenue_models[] (model, description, projected_revenue, margin, complexity, risk, recommendation), unit_economics {cac, ltv, ltv_cac_ratio, payback_period, gross_margin}, opportunities[] (revenue_impact, effort), risks[] (severity, mitigation), strategic_implications[], recommendations[] (rationale, priority), analyst_notes, sources[]""",
+    "monetization-strategy": "executive_summary, key_findings[8-12], detailed_analysis[{heading,content,evidence[]}], revenue_models[{model,description,projected_revenue,margin,complexity,risk,recommendation}], unit_economics{cac,ltv,ltv_cac_ratio,payback_period,gross_margin}, opportunities[{revenue_impact,effort}], risks[{severity,mitigation}], strategic_implications[], recommendations[{rationale,priority}], analyst_notes, sources[]",
 
-    "go-to-market-plan": """Required JSON fields: executive_summary, key_findings (8-12), detailed_analysis[] (heading, content, evidence[]), launch_timeline[] (phase, duration, activities[], milestones[], resources_needed), channels[] (channel, strategy, expected_cac, expected_ltv, scale_potential, timeline), opportunities[] (impact, effort), risks[] (severity, mitigation), strategic_implications[], recommendations[] (rationale, priority), analyst_notes, sources[]""",
+    "go-to-market-plan": "executive_summary, key_findings[8-12], detailed_analysis[{heading,content,evidence[]}], launch_timeline[{phase,duration,activities[],milestones[],resources_needed}], channels[{channel,strategy,expected_cac,expected_ltv,scale_potential,timetable}], opportunities[{impact,effort}], risks[{severity,mitigation}], strategic_implications[], recommendations[{rationale,priority}], analyst_notes, sources[]",
 
-    "risk-register": """Required JSON fields: executive_summary, key_findings (8-12), detailed_analysis[] (heading, content, evidence[]), risk_table[] (risk, category, probability, impact, risk_score, evidence, mitigation, early_warning, owner, timeline), risk_heatmap, opportunities[] (risk-derived), strategic_implications[], recommendations[] (rationale, priority), risk_monitoring_plan, analyst_notes, sources[]""",
+    "risk-register": "executive_summary, key_findings[8-12], detailed_analysis[{heading,content,evidence[]}], risk_table[{risk,category,probability,impact,risk_score,evidence,mitigation,early_warning,owner,timeline}], risk_heatmap, opportunities[{risk-derived}], strategic_implications[], recommendations[{rationale,priority}], risk_monitoring_plan, analyst_notes, sources[]",
 }
 
 
@@ -53,7 +54,7 @@ def build_system_prompt(section: str, idea: str, answers: list[str]) -> str:
 
     return f"""You are a {role}. Generate a comprehensive {section} Deep Dive as valid JSON only. No markdown, no code fences.
 
-{fields}
+Required fields: {fields}
 
 STARTUP CONTEXT:
 Idea: {idea}
@@ -67,7 +68,8 @@ Rules:
 - Include evidence for every claim
 - Never contradict the executive report — expand and justify it
 - 8-12 key findings minimum
-- Use professional consulting language throughout"""
+- Use professional consulting language throughout
+- Respond immediately without internal deliberation"""
 
 
 def extract_relevant_report(report_json: dict, section: str) -> dict:
@@ -104,7 +106,7 @@ Generate a valid JSON object with all required fields for {section}."""
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-        "temperature": 0.7,
+        "temperature": 0.5,
         "max_tokens": 8192,
         "response_format": {"type": "json_object"},
     }
@@ -123,10 +125,10 @@ Generate a valid JSON object with all required fields for {section}."""
 
             if resp.status_code == 429:
                 ra_header = resp.headers.get("Retry-After") or resp.headers.get("retry-after")
-                try: retry_after = int(ra_header) if ra_header else 0
+                try: retry_after = min(int(ra_header), MAX_RETRY_AFTER) if ra_header else 0
                 except ValueError: retry_after = 0
-                base_wait = max(retry_after, 2 ** (attempt + 2))
-                wait = base_wait + random.uniform(0, 2)
+                base_wait = max(retry_after, 2 ** attempt)
+                wait = base_wait + random.uniform(0, 1)
                 print(f"  Deep dive Groq 429, retrying in {wait:.1f}s (attempt {attempt + 1}/{max_retries})")
                 await asyncio.sleep(wait)
                 continue
