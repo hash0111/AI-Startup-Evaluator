@@ -80,7 +80,6 @@ export class BrowserSpeechRecognitionProvider implements SpeechProvider {
       console.log('[STT] event.results.length:', event.results.length);
       console.log('[STT] event.results:', event.results);
 
-      // Clear the "first result" safety timeout since we got one
       this.clearFirstResultTimeout();
 
       let newFinal = '';
@@ -148,7 +147,6 @@ export class BrowserSpeechRecognitionProvider implements SpeechProvider {
       this.clearSilenceTimer();
       this.clearFirstResultTimeout();
       this.handlers?.onResult(this.finalTranscript, '');
-      // If an error already set the UI state (e.g. audio-capture), don't override it
       if (!this.errorOccurred) {
         this.handlers?.onStateChange('processing');
         setTimeout(() => {
@@ -164,7 +162,6 @@ export class BrowserSpeechRecognitionProvider implements SpeechProvider {
       this.recognition.start();
       console.log('[STT] recognition.start() succeeded');
 
-      // Safety timeout: if no onresult fires within firstResultDelay, assume failure
       this.firstResultTimeout = setTimeout(() => {
         console.warn('[STT] No onresult received within ' + (this.firstResultDelay / 1000) + 's. Stopping recognition.');
         if (this.isRunning) {
